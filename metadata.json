@@ -1,0 +1,7 @@
+{
+  "name": "OpenMap Explorer",
+  "description": "A Google Maps-inspired navigation experience using OpenStreetMap and Leaflet. Features location search, interactive map controls, and a responsive UI.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
