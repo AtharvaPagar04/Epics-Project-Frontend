@@ -54,7 +54,22 @@ interface MapViewProps {
   savedLocations?: LocationResult[];
   onMapClick?: (lat: number, lng: number) => void;
   tempLocation?: [number, number] | null;
+  onMarkerClick?: (location: LocationResult) => void;
 }
+
+// Component to handle map resizing issues when mounting
+const MapResizer = () => {
+    const map = useMap();
+    useEffect(() => {
+        // Trigger a resize calculation to ensure tiles render correctly
+        // This fixes issues when switching from Auth page to Map page
+        const timeout = setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+        return () => clearTimeout(timeout);
+    }, [map]);
+    return null;
+};
 
 // Helper component to programmatically move the map
 const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
@@ -144,7 +159,8 @@ export const MapView: React.FC<MapViewProps> = ({
     selectedLocation, 
     savedLocations = [], 
     onMapClick,
-    tempLocation 
+    tempLocation,
+    onMarkerClick
 }) => {
   const [currentZoom, setCurrentZoom] = useState(DEFAULT_ZOOM);
   
@@ -178,7 +194,7 @@ export const MapView: React.FC<MapViewProps> = ({
       zoom={DEFAULT_ZOOM} 
       style={{ height: '100%', width: '100%' }}
       zoomControl={false} 
-      className="z-0"
+      className="h-full w-full z-0 outline-none" // Explicit tailwind classes for size
       maxBounds={MP_BOUNDS} // Restrict panning to MP
       maxBoundsViscosity={1.0} // "Solid" bounce back
       minZoom={6} // Prevent zooming out too far
@@ -188,6 +204,7 @@ export const MapView: React.FC<MapViewProps> = ({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       
+      <MapResizer />
       <MapController center={safeCenter} zoom={zoom} />
       
       <RecenterControl />
@@ -207,8 +224,13 @@ export const MapView: React.FC<MapViewProps> = ({
                 key={loc.place_id} 
                 position={pos}
                 icon={markerIcon}
+                eventHandlers={{
+                    mouseover: (e) => e.target.openPopup(),
+                    mouseout: (e) => e.target.closePopup(),
+                    click: () => onMarkerClick && onMarkerClick(loc)
+                }}
             >
-                <Popup className="font-sans">
+                <Popup className="font-sans" closeButton={false}>
                     <div className="p-1 min-w-[160px]">
                         <div className="flex items-center gap-2 mb-2">
                             <span className={`font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeClass}`}>
@@ -232,6 +254,7 @@ export const MapView: React.FC<MapViewProps> = ({
                         )}
 
                         <p className="text-[10px] text-gray-500 mt-2 leading-3">{loc.display_name}</p>
+                        <div className="mt-2 text-[10px] text-blue-600 font-bold">Click for details</div>
                     </div>
                 </Popup>
             </Marker>

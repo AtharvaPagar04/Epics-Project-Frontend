@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Clock, Home, Briefcase, ArrowLeft, Loader2, Navigation, Star, Share2, PanelLeftClose, Plus, Check, ShoppingBasket, X } from 'lucide-react';
+import { Search, MapPin, Clock, Home, Briefcase, ArrowLeft, Loader2, Navigation, Star, Share2, PanelLeftClose, Plus, Check, ShoppingBasket, X, LogOut, User as UserIcon, Store } from 'lucide-react';
 import { searchLocation } from '../services/osmService';
-import { LocationResult } from '../types';
+import { LocationResult, User } from '../types';
 import { RECENT_SEARCHES, CATEGORIES } from '../constants';
 
 interface SidebarProps {
@@ -10,6 +10,9 @@ interface SidebarProps {
   onStartPickingLocation: () => void;
   pickedLocation: [number, number] | null;
   onSaveNewLocation: (location: LocationResult) => void;
+  user: User | null;
+  onLogout: () => void;
+  savedLocations: LocationResult[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -17,7 +20,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose, 
     onStartPickingLocation, 
     pickedLocation,
-    onSaveNewLocation
+    onSaveNewLocation,
+    user,
+    onLogout,
+    savedLocations
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LocationResult[]>([]);
@@ -33,6 +39,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Inventory State
   const [inventoryItems, setInventoryItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
+
+  // Vendor's own outlets
+  const myOutlets = savedLocations.filter(loc => loc.ownerId === user?.id);
 
   // Debounce search
   useEffect(() => {
@@ -81,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleSavePlace = () => {
-      if (!pickedLocation || !newPlaceName) return;
+      if (!pickedLocation || !newPlaceName || !user) return;
       
       const newLocation: LocationResult = {
           place_id: Date.now(), // Mock ID
@@ -96,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type: newPlaceCategory || 'greengrocer',
           importance: 0.5,
           items: inventoryItems,
+          ownerId: user.id, // Link to current vendor
           address: {
               road: newPlaceName,
               city: "Local Vendor", 
@@ -164,17 +174,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
             </div>
 
-            {/* Desktop Add Button (visible in search view) */}
-            {activeView === 'search' && (
-                <button 
-                    onClick={() => setActiveView('add')}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors ml-1"
-                    title="Register a Vendor"
-                >
-                    <Plus size={24} />
-                </button>
-            )}
-
             {/* Desktop Collapse Button */}
             {activeView === 'search' && (
                 <button 
@@ -191,9 +190,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-200">
         
-        {/* VIEW: Search Results & History */}
+        {/* VIEW: Search Results & History & Vendor Dashboard */}
         {activeView === 'search' && (
             <>
+                {/* VENDOR DASHBOARD SECTION */}
+                {user?.role === 'vendor' && !query && (
+                    <div className="mb-6 px-2">
+                        <div className="flex items-center justify-between px-2 mb-2">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">My Outlets</h3>
+                            <button 
+                                onClick={() => setActiveView('add')} 
+                                className="text-xs flex items-center gap-1 text-green-600 font-bold hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                            >
+                                <Plus size={14} /> Add New
+                            </button>
+                        </div>
+                        
+                        {/* List Vendor's Shops */}
+                        <div className="space-y-2">
+                            {myOutlets.length > 0 ? (
+                                myOutlets.map(outlet => (
+                                    <button
+                                        key={outlet.place_id}
+                                        onClick={() => handleSelect(outlet)}
+                                        className="w-full bg-green-50 border border-green-100 rounded-xl p-3 flex items-center gap-3 hover:bg-green-100 hover:border-green-200 transition-all text-left group"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-white text-green-600 flex items-center justify-center shadow-sm border border-green-100">
+                                            <Store size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-800 text-sm">{outlet.address?.road || outlet.display_name.split(',')[0]}</p>
+                                            <p className="text-[10px] text-green-700 font-medium">{outlet.items?.length || 0} items listed</p>
+                                        </div>
+                                    </button>
+                                ))
+                            ) : (
+                                <button 
+                                    onClick={() => setActiveView('add')}
+                                    className="w-full bg-white border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-green-400 hover:bg-green-50/50 transition-all group"
+                                >
+                                    <div className="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Plus size={24} />
+                                    </div>
+                                    <p className="text-sm font-semibold text-gray-600 group-hover:text-green-700">List Your First Outlet</p>
+                                    <p className="text-xs text-gray-400 text-center">Customers are waiting! Tap to place your shop on the map.</p>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Active Search Results */}
                 {query.length > 0 && results.length > 0 && (
                     <div className="mb-4 mt-2">
@@ -226,14 +272,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                      </div>
                 )}
 
-                {/* Recent History */}
+                {/* Recent History (Only show if not searching) */}
                 {(!query || results.length < 3) && (
                     <div className="mt-2">
-                        {!query && <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 mt-2">Vendors Nearby</h3>}
+                        {!query && <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 mt-2">Explore Nearby</h3>}
                         
                         {RECENT_SEARCHES.map((item) => (
                              <div key={item.id} className="w-full text-left px-4 py-3 hover:bg-gray-100 flex items-center gap-4 rounded-lg cursor-pointer group">
-                                <div className="p-2 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                                <div className="p-2 rounded-full flex items-center justify-center bg-gray-100 text-gray-500">
                                     <ShoppingBasket size={18} />
                                 </div>
                                 <div className="flex-1">
@@ -342,7 +388,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onClick={handleSavePlace}
                             className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold shadow-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                            Save Vendor
+                            Publish Outlet
                         </button>
                     </div>
                 </div>
@@ -423,9 +469,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       </div>
         
-        {/* Footer */}
-        <div className="p-2 border-t text-center text-[10px] text-gray-400 bg-gray-50">
-            Local Vendor Network
+        {/* Footer / Profile Section */}
+        <div className="p-3 border-t bg-gray-50">
+            {user ? (
+                <div className="flex items-center justify-between gap-3">
+                     <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold shadow-sm">
+                             {user.name.charAt(0)}
+                         </div>
+                         <div>
+                             <p className="text-sm font-semibold text-gray-800">{user.name}</p>
+                             <p className="text-xs text-gray-500 capitalize">{user.role} Access</p>
+                         </div>
+                     </div>
+                     <button 
+                        onClick={onLogout}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Log Out"
+                     >
+                         <LogOut size={20} />
+                     </button>
+                </div>
+            ) : (
+                <div className="text-center text-[10px] text-gray-400">
+                    Not logged in
+                </div>
+            )}
         </div>
     </div>
   );

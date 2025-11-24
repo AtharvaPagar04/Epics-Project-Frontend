@@ -1,16 +1,24 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { MapView } from './components/MapView';
 import { Sidebar } from './components/Sidebar';
-import { LocationResult } from './types';
+import { DetailPanel } from './components/DetailPanel';
+import { AuthPage } from './components/AuthPage';
+import { LocationResult, User } from './types';
 import { CATEGORIES } from './constants';
 import { Menu, Search, X } from 'lucide-react';
 import { SAVED_LOCATIONS } from './db/locations';
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+
+  // --- Main App Logic ---
   const [selectedLocation, setSelectedLocation] = useState<LocationResult | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
+  // Right Side Detail Panel State
+  const [selectedShop, setSelectedShop] = useState<LocationResult | null>(null);
+
   // Custom Location Logic
   const [savedLocations, setSavedLocations] = useState<LocationResult[]>(SAVED_LOCATIONS);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
@@ -18,6 +26,7 @@ export default function App() {
 
   const handleLocationSelect = useCallback((location: LocationResult) => {
     setSelectedLocation(location);
+    setSelectedShop(null); // Close right panel if picking from search
     // On mobile, close the sidebar when a location is picked to show the map
     if (window.innerWidth < 768) {
         setSidebarOpen(false);
@@ -26,6 +35,7 @@ export default function App() {
 
   const handleStartPicking = useCallback(() => {
       setSidebarOpen(false);
+      setSelectedShop(null);
       setIsPickingLocation(true);
       // Reset any previous temp coords so user has to click again
   }, []);
@@ -35,8 +45,19 @@ export default function App() {
           setTempCoords([lat, lng]);
           setIsPickingLocation(false);
           setSidebarOpen(true);
+      } else {
+          // If clicking background map (not marker), close right panel
+          setSelectedShop(null);
       }
   }, [isPickingLocation]);
+
+  const handleMarkerClick = useCallback((location: LocationResult) => {
+      setSelectedShop(location);
+      // Optionally close left sidebar on mobile to make room
+      if (window.innerWidth < 768) {
+          setSidebarOpen(false);
+      }
+  }, []);
 
   const handleCancelPicking = useCallback(() => {
       setIsPickingLocation(false);
@@ -55,6 +76,7 @@ export default function App() {
       setSelectedCategory(prev => prev === categoryId ? null : categoryId);
       // If we select a category, deselect specific location so we can see the map view
       setSelectedLocation(null);
+      setSelectedShop(null);
   }, []);
 
   // Filter locations based on selected category
@@ -63,6 +85,12 @@ export default function App() {
       return savedLocations.filter(loc => loc.type === selectedCategory);
   }, [savedLocations, selectedCategory]);
 
+
+  // --- Auth Flow Checks ---
+  if (!user) {
+      return <AuthPage onLogin={setUser} />;
+  }
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-slate-100 font-sans text-slate-900">
       {/* Map Background */}
@@ -70,8 +98,9 @@ export default function App() {
         <MapView 
             selectedLocation={selectedLocation} 
             savedLocations={filteredLocations}
-            onMapClick={isPickingLocation ? handleMapClick : undefined}
+            onMapClick={handleMapClick}
             tempLocation={tempCoords}
+            onMarkerClick={handleMarkerClick}
         />
       </div>
 
@@ -94,7 +123,7 @@ export default function App() {
       )}
 
       {/* Floating UI Container */}
-      <div className="absolute inset-0 z-10 pointer-events-none flex flex-col sm:flex-row">
+      <div className="absolute inset-0 z-10 pointer-events-none flex flex-col sm:flex-row justify-between">
         
         {/* Sidebar (Left Panel) */}
         <div 
@@ -111,6 +140,9 @@ export default function App() {
                 onStartPickingLocation={handleStartPicking}
                 pickedLocation={tempCoords}
                 onSaveNewLocation={handleSaveNewLocation}
+                user={user}
+                onLogout={() => setUser(null)}
+                savedLocations={savedLocations}
             />
         </div>
 
@@ -170,6 +202,15 @@ export default function App() {
                 })}
             </div>
         )}
+
+        {/* Right Detail Panel - Only renders if selectedShop is present, but always mounted for transition */}
+        <div className="pointer-events-auto z-50">
+            <DetailPanel 
+                location={selectedShop} 
+                isOpen={!!selectedShop}
+                onClose={() => setSelectedShop(null)} 
+            />
+        </div>
       </div>
     </div>
   );

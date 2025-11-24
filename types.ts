@@ -1,5 +1,14 @@
 import { ReactNode } from "react";
 
+export type UserRole = 'user' | 'vendor';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
 export interface LocationResult {
   place_id: number;
   licence: string;
@@ -13,7 +22,8 @@ export interface LocationResult {
   type: string;
   importance: number;
   icon?: string;
-  items?: string[]; // New: Inventory list
+  items?: string[]; // Inventory list
+  ownerId?: string; // ID of the vendor who owns this outlet
   address?: {
     road?: string;
     suburb?: string;
