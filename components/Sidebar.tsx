@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Clock, Home, Briefcase, ArrowLeft, Loader2, Navigation, Star, Share2, PanelLeftClose, Plus, Check, ShoppingBasket, X, LogOut, User as UserIcon, Store } from 'lucide-react';
+import { Search, MapPin, Clock, Home, Briefcase, ArrowLeft, Loader2, Navigation, Star, Share2, PanelLeftClose, Plus, Check, ShoppingBasket, X, LogOut, User as UserIcon, Store, Phone, Truck, FileText, AlignLeft, Package, Edit, Trash2, ToggleLeft, ToggleRight, Settings, IndianRupee } from 'lucide-react';
 import { searchLocation } from '../services/osmService';
-import { LocationResult, User } from '../types';
+import { LocationResult, User, InventoryItem } from '../types';
 import { RECENT_SEARCHES, CATEGORIES } from '../constants';
 
 interface SidebarProps {
@@ -10,6 +10,7 @@ interface SidebarProps {
   onStartPickingLocation: () => void;
   pickedLocation: [number, number] | null;
   onSaveNewLocation: (location: LocationResult) => void;
+  onUpdateLocation: (location: LocationResult) => void;
   user: User | null;
   onLogout: () => void;
   savedLocations: LocationResult[];
@@ -21,6 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onStartPickingLocation, 
     pickedLocation,
     onSaveNewLocation,
+    onUpdateLocation,
     user,
     onLogout,
     savedLocations
@@ -28,17 +30,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LocationResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeView, setActiveView] = useState<'search' | 'details' | 'add'>('search');
+  
+  // Views: 'search' | 'details' | 'add' | 'manage'
+  const [activeView, setActiveView] = useState<'search' | 'details' | 'add' | 'manage'>('search');
   const [selectedDetail, setSelectedDetail] = useState<LocationResult | null>(null);
 
-  // Form State for Adding Place
+  // --- Form State for Adding Place ---
   const [newPlaceName, setNewPlaceName] = useState('');
   const [newPlaceCategory, setNewPlaceCategory] = useState('');
   const [newPlaceDesc, setNewPlaceDesc] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [deliveryAvailable, setDeliveryAvailable] = useState(false);
   
-  // Inventory State
-  const [inventoryItems, setInventoryItems] = useState<string[]>([]);
-  const [currentItem, setCurrentItem] = useState('');
+  // --- Inventory State for Registration ---
+  const [inventoryItems, setInventoryItems] = useState<{name: string, price: string}[]>([]);
+  const [currentItemName, setCurrentItemName] = useState('');
+  const [currentItemPrice, setCurrentItemPrice] = useState('');
+
+  // --- Management State (Editing existing place) ---
+  const [managedLocation, setManagedLocation] = useState<LocationResult | null>(null);
+  const [manageItemName, setManageItemName] = useState('');
+  const [manageItemPrice, setManageItemPrice] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Vendor's own outlets
   const myOutlets = savedLocations.filter(loc => loc.ownerId === user?.id);
@@ -77,11 +90,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setSelectedDetail(null);
   };
 
+  // --- Registration Logic ---
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentItem.trim()) {
-        setInventoryItems([...inventoryItems, currentItem.trim()]);
-        setCurrentItem('');
+    if (currentItemName.trim()) {
+        setInventoryItems([...inventoryItems, { name: currentItemName.trim(), price: currentItemPrice.trim() }]);
+        setCurrentItemName('');
+        setCurrentItemPrice('');
     }
   };
 
@@ -104,8 +119,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           class: newPlaceCategory || 'shop',
           type: newPlaceCategory || 'greengrocer',
           importance: 0.5,
-          items: inventoryItems,
+          items: inventoryItems.map((item, idx) => ({
+              id: `init-${idx}-${Date.now()}`,
+              name: item.name,
+              price: item.price,
+              inStock: true
+          })),
           ownerId: user.id, // Link to current vendor
+          contact: contactNumber,
+          delivery: deliveryAvailable,
+          description: newPlaceDesc,
           address: {
               road: newPlaceName,
               city: "Local Vendor", 
@@ -119,8 +142,113 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setNewPlaceName('');
       setNewPlaceCategory('');
       setNewPlaceDesc('');
+      setContactNumber('');
+      setDeliveryAvailable(false);
       setInventoryItems([]);
       setActiveView('search');
+  };
+
+  // --- Management Logic ---
+  const handleManageOutlet = (outlet: LocationResult) => {
+      onLocationSelect(outlet); // Center map
+      setManagedLocation(outlet);
+      // Reset management form state
+      setManageItemName('');
+      setManageItemPrice('');
+      setEditingItemId(null);
+      setActiveView('manage');
+  };
+
+  const getNormalizedItems = (loc: LocationResult): InventoryItem[] => {
+      if (!loc.items) return [];
+      return loc.items.map((item, idx) => {
+          if (typeof item === 'string') {
+              return { id: `legacy-${idx}`, name: item, inStock: true };
+          }
+          return item;
+      });
+  };
+
+  const handleToggleStock = (itemToToggle: InventoryItem) => {
+      if (!managedLocation) return;
+      
+      const currentItems = getNormalizedItems(managedLocation);
+      const updatedItems = currentItems.map(item => 
+          item.id === itemToToggle.id ? { ...item, inStock: !item.inStock } : item
+      );
+      
+      const updatedLocation = { ...managedLocation, items: updatedItems };
+      setManagedLocation(updatedLocation);
+      onUpdateLocation(updatedLocation);
+  };
+
+  const handleAddManageItem = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!managedLocation || !manageItemName.trim()) return;
+
+      const currentItems = getNormalizedItems(managedLocation);
+      
+      let updatedItems;
+      if (editingItemId) {
+          // Update existing item
+          updatedItems = currentItems.map(item => 
+              item.id === editingItemId 
+              ? { ...item, name: manageItemName.trim(), price: manageItemPrice.trim() }
+              : item
+          );
+          setEditingItemId(null); // Exit edit mode
+      } else {
+          // Add new item
+          const newItem: InventoryItem = {
+              id: `new-${Date.now()}`,
+              name: manageItemName.trim(),
+              price: manageItemPrice.trim(),
+              inStock: true
+          };
+          updatedItems = [...currentItems, newItem];
+      }
+
+      const updatedLocation = { ...managedLocation, items: updatedItems };
+      setManagedLocation(updatedLocation);
+      onUpdateLocation(updatedLocation);
+      
+      setManageItemName('');
+      setManageItemPrice('');
+  };
+
+  const handleEditItem = (item: InventoryItem) => {
+      setManageItemName(item.name);
+      setManageItemPrice(item.price || '');
+      setEditingItemId(item.id);
+  };
+
+  const handleCancelEdit = () => {
+      setManageItemName('');
+      setManageItemPrice('');
+      setEditingItemId(null);
+  }
+
+  const handleDeleteManageItem = (itemId: string) => {
+      if (!managedLocation) return;
+      
+      const currentItems = getNormalizedItems(managedLocation);
+      const updatedItems = currentItems.filter(item => item.id !== itemId);
+      
+      const updatedLocation = { ...managedLocation, items: updatedItems };
+      setManagedLocation(updatedLocation);
+      onUpdateLocation(updatedLocation);
+      
+      // If we deleted the item being edited, reset form
+      if (editingItemId === itemId) {
+          handleCancelEdit();
+      }
+  };
+
+  const handleToggleDelivery = () => {
+      if (!managedLocation) return;
+      const updatedLocation = { ...managedLocation, delivery: !managedLocation.delivery };
+      setManagedLocation(updatedLocation);
+      onUpdateLocation(updatedLocation);
   };
 
   return (
@@ -128,51 +256,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Header / Search Area */}
       <div className="p-4 pt-6 pb-2">
         <div className="flex items-center gap-3">
-            {/* Mobile Back Button */}
-            {activeView === 'search' && (
-                <button onClick={onClose} className="sm:hidden p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full">
-                    <ArrowLeft size={20} />
-                </button>
-            )}
-
-            {/* Title for Add Mode */}
-            {activeView === 'add' && (
+            {/* Back Button Handling */}
+            {activeView !== 'search' ? (
                  <div className="flex items-center gap-2 flex-1">
                     <button 
-                        onClick={() => setActiveView('search')} 
-                        className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full"
+                        onClick={() => {
+                            if (activeView === 'manage') setActiveView('search');
+                            else if (activeView === 'add') setActiveView('search');
+                            else handleBackToSearch();
+                        }} 
+                        className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
                     >
                         <ArrowLeft size={20} />
                     </button>
-                    <h2 className="text-lg font-semibold text-gray-800">Register Vendor</h2>
+                    <div>
+                        {activeView === 'add' && <h2 className="text-lg font-bold text-gray-900 leading-none">Register Outlet</h2>}
+                        {activeView === 'manage' && <h2 className="text-lg font-bold text-gray-900 leading-none">Manage Outlet</h2>}
+                        {activeView === 'details' && <h2 className="text-lg font-bold text-gray-900 leading-none">Location</h2>}
+                    </div>
                  </div>
-            )}
-
-            {/* Search Input */}
-            <div className={`
-                relative flex items-center flex-1 bg-white border border-gray-300 rounded-full shadow-sm
-                focus-within:shadow-md focus-within:border-green-500 transition-all h-12
-                ${(activeView === 'details' || activeView === 'add') ? 'hidden' : 'flex'}
-            `}>
-                <div className="pl-4 text-gray-400">
-                    {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Search size={20} />}
+            ) : (
+                /* Search Input (Only on Search View) */
+                <div className={`
+                    relative flex items-center flex-1 bg-white border border-gray-300 rounded-full shadow-sm
+                    focus-within:shadow-md focus-within:border-green-500 transition-all h-12
+                `}>
+                    <div className="pl-4 text-gray-400">
+                        {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Search size={20} />}
+                    </div>
+                    <input
+                        type="text"
+                        className="w-full p-3 bg-transparent outline-none text-gray-700 placeholder-gray-500 text-base"
+                        placeholder="Search locations..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                    />
+                    {query && (
+                        <button 
+                            onClick={() => { setQuery(''); setResults([]); }}
+                            className="pr-4 text-gray-400 hover:text-gray-600"
+                        >
+                            <ArrowLeft size={20} className="rotate-45" /> 
+                        </button>
+                    )}
                 </div>
-                <input
-                    type="text"
-                    className="w-full p-3 bg-transparent outline-none text-gray-700 placeholder-gray-500 text-base"
-                    placeholder="Search locations..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                />
-                {query && (
-                    <button 
-                        onClick={() => { setQuery(''); setResults([]); }}
-                        className="pr-4 text-gray-400 hover:text-gray-600"
-                    >
-                        <ArrowLeft size={20} className="rotate-45" /> 
-                    </button>
-                )}
-            </div>
+            )}
 
             {/* Desktop Collapse Button */}
             {activeView === 'search' && (
@@ -212,15 +340,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 myOutlets.map(outlet => (
                                     <button
                                         key={outlet.place_id}
-                                        onClick={() => handleSelect(outlet)}
-                                        className="w-full bg-green-50 border border-green-100 rounded-xl p-3 flex items-center gap-3 hover:bg-green-100 hover:border-green-200 transition-all text-left group"
+                                        onClick={() => handleManageOutlet(outlet)}
+                                        className="w-full bg-white border border-green-100 shadow-sm rounded-xl p-3 flex items-center gap-3 hover:shadow-md hover:border-green-200 transition-all text-left group"
                                     >
-                                        <div className="w-10 h-10 rounded-full bg-white text-green-600 flex items-center justify-center shadow-sm border border-green-100">
-                                            <Store size={20} />
+                                        <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center border border-green-100">
+                                            <Settings size={20} />
                                         </div>
-                                        <div>
+                                        <div className="flex-1">
                                             <p className="font-bold text-gray-800 text-sm">{outlet.address?.road || outlet.display_name.split(',')[0]}</p>
-                                            <p className="text-[10px] text-green-700 font-medium">{outlet.items?.length || 0} items listed</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">
+                                                    Manage Stock
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-gray-50 p-1.5 rounded-full text-gray-400 group-hover:text-green-600 transition-colors">
+                                            <Edit size={16} />
                                         </div>
                                     </button>
                                 ))
@@ -272,7 +407,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                      </div>
                 )}
 
-                {/* Recent History (Only show if not searching) */}
+                {/* Recent History */}
                 {(!query || results.length < 3) && (
                     <div className="mt-2">
                         {!query && <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 mt-2">Explore Nearby</h3>}
@@ -293,104 +428,353 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </>
         )}
 
+        {/* VIEW: Vendor Management Dashboard */}
+        {activeView === 'manage' && managedLocation && (
+            <div className="px-4 pt-2 animate-fadeIn space-y-6">
+                
+                {/* Header Info */}
+                <div className="bg-gradient-to-br from-green-50 to-white rounded-xl shadow-sm border border-green-100 p-4">
+                    <h1 className="text-xl font-bold text-gray-800">{managedLocation.address?.road || managedLocation.display_name.split(',')[0]}</h1>
+                    <p className="text-xs text-gray-500 mt-1">{managedLocation.display_name}</p>
+                    <div className="flex gap-2 mt-3">
+                         <div className="flex items-center gap-1.5 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold border border-green-200">
+                             <Check size={12} /> Live on Map
+                         </div>
+                         <button 
+                            onClick={handleToggleDelivery}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold border transition-colors ${managedLocation.delivery ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
+                         >
+                             <Truck size={12} /> {managedLocation.delivery ? 'Delivery On' : 'Delivery Off'}
+                         </button>
+                    </div>
+                </div>
+
+                {/* Inventory Manager */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <Package size={18} className="text-orange-600" />
+                            Inventory
+                        </h3>
+                        <span className="text-xs text-gray-400">
+                            {getNormalizedItems(managedLocation).filter(i => i.inStock).length} in stock
+                        </span>
+                    </div>
+
+                    {/* Add / Edit Item Form */}
+                    <form onSubmit={handleAddManageItem} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        {editingItemId && <p className="text-xs text-orange-600 font-bold mb-2">Editing Item</p>}
+                        <div className="flex gap-2 mb-2">
+                            <input 
+                                type="text"
+                                value={manageItemName}
+                                onChange={(e) => setManageItemName(e.target.value)}
+                                placeholder="Item Name (e.g. Potato)"
+                                className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            <input 
+                                type="text"
+                                value={manageItemPrice}
+                                onChange={(e) => setManageItemPrice(e.target.value)}
+                                placeholder="Price (₹)"
+                                className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <button 
+                                type="submit" 
+                                disabled={!manageItemName.trim()}
+                                className="flex-1 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors text-sm font-bold flex items-center justify-center gap-1"
+                            >
+                                {editingItemId ? <Check size={16} /> : <Plus size={16} />}
+                                {editingItemId ? 'Update Item' : 'Add to Stock'}
+                            </button>
+                            {editingItemId && (
+                                <button 
+                                    type="button" 
+                                    onClick={handleCancelEdit}
+                                    className="px-3 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
+                        </div>
+                    </form>
+
+                    {/* Item List */}
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                        {getNormalizedItems(managedLocation).length > 0 ? (
+                            <div className="divide-y divide-gray-100">
+                                {getNormalizedItems(managedLocation).map((item) => (
+                                    <div key={item.id} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => handleToggleStock(item)}
+                                                className={`
+                                                    w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out flex items-center
+                                                    ${item.inStock ? 'bg-green-500' : 'bg-gray-300'}
+                                                `}
+                                            >
+                                                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${item.inStock ? 'translate-x-4' : 'translate-x-0'}`} />
+                                            </button>
+                                            <div>
+                                                <p className={`text-sm font-medium ${item.inStock ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                                                    {item.name}
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-gray-400">
+                                                        {item.inStock ? 'In Stock' : 'Out of Stock'}
+                                                    </span>
+                                                    {item.price && (
+                                                        <span className="text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-100 font-medium">
+                                                            {item.price}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button 
+                                                onClick={() => handleEditItem(item)}
+                                                className="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all"
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteManageItem(item.id)}
+                                                className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-all"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-8 text-center text-gray-400">
+                                <Package size={24} className="mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">No items listed</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
+                     <div className="p-2 bg-white rounded-full text-blue-600 shadow-sm mt-1">
+                         <FileText size={16} />
+                     </div>
+                     <div>
+                         <p className="text-sm font-bold text-gray-800">Quick Tip</p>
+                         <p className="text-xs text-gray-600 mt-1">
+                             Keep your stock and prices updated daily. Customers prefer stores with transparent pricing.
+                         </p>
+                     </div>
+                </div>
+
+            </div>
+        )}
+
         {/* VIEW: Add Vendor Form */}
         {activeView === 'add' && (
-            <div className="px-4 pt-2 animate-fadeIn">
-                <div className="space-y-4">
+            <div className="px-4 pt-2 animate-fadeIn space-y-6">
+                
+                {/* 1. Basic Info Section */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
+                        <Store size={18} className="text-green-600" />
+                        <h3 className="text-sm font-bold text-gray-800">Outlet Details</h3>
+                    </div>
+                    
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Vendor Name</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Shop Name</label>
                         <input 
                             type="text"
                             value={newPlaceName}
                             onChange={(e) => setNewPlaceName(e.target.value)}
                             placeholder="e.g. Raju's Fresh Veggies"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                            className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white outline-none transition-all"
                         />
                     </div>
                     
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Vendor Type</label>
-                        <select
-                            value={newPlaceCategory}
-                            onChange={(e) => setNewPlaceCategory(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white transition-all"
-                        >
-                            <option value="">Select a category</option>
+                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Category</label>
+                        <div className="grid grid-cols-2 gap-2">
                             {CATEGORIES.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.label}</option>
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setNewPlaceCategory(cat.id)}
+                                    className={`
+                                        flex items-center gap-2 p-2 rounded-lg border text-xs font-medium transition-all
+                                        ${newPlaceCategory === cat.id 
+                                            ? 'bg-green-50 border-green-500 text-green-700' 
+                                            : 'bg-white border-gray-200 text-gray-600 hover:border-green-300'
+                                        }
+                                    `}
+                                >
+                                    {cat.icon}
+                                    {cat.label}
+                                </button>
                             ))}
-                            <option value="custom">Other</option>
-                        </select>
+                        </div>
                     </div>
 
-                    {/* Inventory Manager */}
-                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase">Available Items</label>
-                        
-                        <form onSubmit={handleAddItem} className="flex gap-2 mb-3">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Description</label>
+                        <div className="relative">
+                            <FileText size={16} className="absolute left-3 top-3 text-gray-400" />
+                            <textarea 
+                                value={newPlaceDesc}
+                                onChange={(e) => setNewPlaceDesc(e.target.value)}
+                                placeholder="Describe your shop... (e.g. Fresh organic vegetables daily)"
+                                rows={2}
+                                className="w-full pl-9 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white outline-none transition-all resize-none"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Contact & Services */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+                     <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
+                        <Phone size={18} className="text-blue-600" />
+                        <h3 className="text-sm font-bold text-gray-800">Contact & Services</h3>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Mobile Number</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-gray-500 text-sm font-medium border-r border-gray-300 pr-2">+91</span>
+                            <input 
+                                type="tel"
+                                value={contactNumber}
+                                onChange={(e) => setContactNumber(e.target.value.replace(/\D/g,'').slice(0,10))}
+                                placeholder="98765 43210"
+                                className="w-full pl-14 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white rounded-full text-blue-600 shadow-sm">
+                                <Truck size={18} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-800">Delivery Service</p>
+                                <p className="text-[10px] text-gray-500">Do you deliver to customers?</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setDeliveryAvailable(!deliveryAvailable)}
+                            className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${deliveryAvailable ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        >
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${deliveryAvailable ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* 3. Inventory Manager */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
+                        <Package size={18} className="text-orange-600" />
+                        <h3 className="text-sm font-bold text-gray-800">Initial Stock & Prices</h3>
+                    </div>
+                    
+                    <form onSubmit={handleAddItem} className="flex gap-2">
+                        <div className="flex-1 space-y-2">
                             <input 
                                 type="text"
-                                value={currentItem}
-                                onChange={(e) => setCurrentItem(e.target.value)}
-                                placeholder="e.g. Potatoes, Apples..."
-                                className="flex-1 p-2 border border-gray-300 rounded text-sm outline-none focus:border-green-500"
+                                value={currentItemName}
+                                onChange={(e) => setCurrentItemName(e.target.value)}
+                                placeholder="Item (e.g. Potato)"
+                                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                             />
-                            <button 
-                                type="submit" 
-                                disabled={!currentItem}
-                                className="px-3 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                            >
-                                Add
-                            </button>
-                        </form>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text"
+                                    value={currentItemPrice}
+                                    onChange={(e) => setCurrentItemPrice(e.target.value)}
+                                    placeholder="Price (e.g. ₹20/kg)"
+                                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                                />
+                                <button 
+                                    type="submit" 
+                                    disabled={!currentItemName}
+                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </form>
 
+                    <div className="min-h-[60px] p-2 bg-gray-50 rounded-lg border border-gray-200 border-dashed">
                         {inventoryItems.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                                 {inventoryItems.map((item, idx) => (
-                                    <span key={idx} className="bg-white border border-green-200 text-green-800 text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                                        {item}
-                                        <button onClick={() => handleRemoveItem(idx)} className="text-green-400 hover:text-red-500">
+                                    <span key={idx} className="bg-white border border-gray-200 text-gray-700 text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-sm">
+                                        {item.name}
+                                        {item.price && <span className="text-orange-600 font-medium">({item.price})</span>}
+                                        <button onClick={() => handleRemoveItem(idx)} className="text-gray-400 hover:text-red-500 transition-colors">
                                             <X size={12} />
                                         </button>
                                     </span>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-xs text-gray-400 italic">No items added yet. Add what this vendor is selling.</p>
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Location</label>
-                        {pickedLocation ? (
-                            <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <Check size={18} className="text-green-600" />
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-green-800">Location Set</p>
-                                    <p className="text-xs text-green-600">{pickedLocation[0].toFixed(5)}, {pickedLocation[1].toFixed(5)}</p>
-                                </div>
-                                <button onClick={onStartPickingLocation} className="text-xs text-green-700 underline font-medium">Change</button>
+                            <div className="h-full flex flex-col items-center justify-center text-gray-400 py-2">
+                                <span className="text-xs italic">No items added yet</span>
                             </div>
-                        ) : (
-                            <button 
-                                onClick={onStartPickingLocation}
-                                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition-all flex items-center justify-center gap-2 font-medium"
-                            >
-                                <MapPin size={18} />
-                                Set Location on Map
-                            </button>
                         )}
                     </div>
+                </div>
 
-                    <div className="pt-2 flex gap-3 pb-8">
-                        <button 
-                            disabled={!newPlaceName || !pickedLocation}
-                            onClick={handleSavePlace}
-                            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold shadow-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            Publish Outlet
-                        </button>
+                {/* 4. Location Picker */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 pb-2 mb-3">
+                        <MapPin size={18} className="text-red-600" />
+                        <h3 className="text-sm font-bold text-gray-800">Location</h3>
                     </div>
+
+                    {pickedLocation ? (
+                        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="bg-white p-1.5 rounded-full text-green-600 shadow-sm">
+                                <Check size={16} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-bold text-green-800">Coordinates Set</p>
+                                <p className="text-[10px] text-green-700 font-mono mt-0.5">
+                                    {pickedLocation[0].toFixed(6)}, {pickedLocation[1].toFixed(6)}
+                                </p>
+                            </div>
+                            <button onClick={onStartPickingLocation} className="text-xs text-green-700 underline font-medium hover:text-green-800">
+                                Change
+                            </button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={onStartPickingLocation}
+                            className="w-full py-4 border-2 border-dashed border-red-200 bg-red-50/50 rounded-xl text-red-500 hover:border-red-400 hover:text-red-600 hover:bg-red-50 transition-all flex flex-col items-center justify-center gap-2 group"
+                        >
+                            <MapPin size={24} className="group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-sm">Pin Location on Map</span>
+                        </button>
+                    )}
+                </div>
+
+                {/* Submit Action */}
+                <div className="pb-8 pt-2">
+                    <button 
+                        disabled={!newPlaceName || !pickedLocation}
+                        onClick={handleSavePlace}
+                        className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                        <Store size={20} />
+                        Publish Outlet
+                    </button>
+                    <p className="text-center text-[10px] text-gray-400 mt-3">
+                        By publishing, you agree to our terms of service for vendors.
+                    </p>
                 </div>
             </div>
         )}
@@ -433,15 +817,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </h3>
                         {selectedDetail.items && selectedDetail.items.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                                {selectedDetail.items.map((item, i) => (
-                                    <span key={i} className="px-3 py-1.5 bg-green-100 text-green-800 text-sm font-medium rounded-lg border border-green-200">
-                                        {item}
-                                    </span>
-                                ))}
+                                {/* Only show IN STOCK items to customers */}
+                                {selectedDetail.items.map((item, i) => {
+                                    // Handle both legacy strings and new object format
+                                    const itemName = typeof item === 'string' ? item : (item.inStock ? item.name : null);
+                                    if (!itemName) return null;
+                                    
+                                    const itemPrice = typeof item !== 'string' ? item.price : null;
+
+                                    return (
+                                        <span key={i} className="px-3 py-1.5 bg-green-100 text-green-800 text-sm font-medium rounded-lg border border-green-200 flex items-center gap-1">
+                                            {itemName}
+                                            {itemPrice && <span className="text-xs text-green-700 opacity-75 border-l border-green-300 pl-1 ml-1">{itemPrice}</span>}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         ) : (
                             <p className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded-lg">
-                                No specific inventory listed.
+                                No stock information available.
                             </p>
                         )}
                     </div>

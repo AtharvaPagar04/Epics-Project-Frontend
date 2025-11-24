@@ -242,11 +242,16 @@ export const MapView: React.FC<MapViewProps> = ({
                         {/* Items Preview */}
                         {loc.items && loc.items.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                                {loc.items.slice(0, 3).map((item, i) => (
-                                    <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                        {item}
-                                    </span>
-                                ))}
+                                {loc.items.slice(0, 3).map((item, i) => {
+                                    // Handle string vs object item
+                                    const name = typeof item === 'string' ? item : item.name;
+                                    const price = typeof item !== 'string' && item.price ? ` (${item.price})` : '';
+                                    return (
+                                        <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                            {name}{price}
+                                        </span>
+                                    );
+                                })}
                                 {loc.items.length > 3 && (
                                     <span className="text-[10px] text-gray-400 pl-1">+{loc.items.length - 3} more</span>
                                 )}

@@ -9,6 +9,13 @@ export interface User {
   role: UserRole;
 }
 
+export interface InventoryItem {
+  id: string;
+  name: string;
+  inStock: boolean;
+  price?: string;
+}
+
 export interface LocationResult {
   place_id: number;
   licence: string;
@@ -22,8 +29,17 @@ export interface LocationResult {
   type: string;
   importance: number;
   icon?: string;
-  items?: string[]; // Inventory list
+  
+  // Updated to support both legacy string arrays and new structured inventory
+  items?: (string | InventoryItem)[]; 
+  
   ownerId?: string; // ID of the vendor who owns this outlet
+  
+  // Enhanced Vendor Details
+  contact?: string;
+  delivery?: boolean;
+  description?: string;
+
   address?: {
     road?: string;
     suburb?: string;

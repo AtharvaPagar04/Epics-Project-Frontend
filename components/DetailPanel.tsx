@@ -1,6 +1,6 @@
 import React from 'react';
 import { LocationResult } from '../types';
-import { X, Star, Phone, Clock, MapPin, ShoppingBag, Truck, ShieldCheck } from 'lucide-react';
+import { X, Star, Phone, Clock, MapPin, ShoppingBag, Truck, ShieldCheck, FileText } from 'lucide-react';
 
 interface DetailPanelProps {
   location: LocationResult | null;
@@ -11,10 +11,11 @@ interface DetailPanelProps {
 export const DetailPanel: React.FC<DetailPanelProps> = ({ location, onClose, isOpen }) => {
   if (!location) return null;
 
-  // Mock data generators based on ID for consistent UI presentation
+  // Derived data
   const rating = (4 + (location.place_id % 10) / 10).toFixed(1);
-  const reviews = 50 + (location.place_id % 200);
-  const distance = (0.5 + (location.place_id % 50) / 10).toFixed(1);
+  const contactDisplay = location.contact || `+91 98765 ${location.place_id.toString().slice(-5)}`;
+  // Default delivery to true if undefined (for old mock data), otherwise use specific value
+  const deliveryStatus = location.delivery !== undefined ? location.delivery : true; 
 
   return (
     <div className={`
@@ -69,11 +70,13 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ location, onClose, isO
                   <span className="text-xs font-bold text-gray-800">Open Now</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                  <div className="p-2 bg-blue-50 text-blue-700 rounded-full">
+                  <div className={`p-2 rounded-full ${deliveryStatus ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
                       <Truck size={20} />
                   </div>
                   <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wide">Delivery</span>
-                  <span className="text-xs font-bold text-gray-800">Available</span>
+                  <span className={`text-xs font-bold ${deliveryStatus ? 'text-gray-800' : 'text-gray-400'}`}>
+                      {deliveryStatus ? 'Available' : 'No Delivery'}
+                  </span>
               </div>
               <div className="flex flex-col items-center gap-1">
                   <div className="p-2 bg-orange-50 text-orange-700 rounded-full">
@@ -91,13 +94,20 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ location, onClose, isO
               <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider">About Vendor</h3>
               
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  {location.description && (
+                      <div className="flex items-start gap-3 text-sm text-gray-600 mb-2 border-b border-gray-200 pb-3">
+                          <FileText size={16} className="shrink-0 mt-0.5 text-gray-400" />
+                          <p className="leading-relaxed italic">{location.description}</p>
+                      </div>
+                  )}
+
                   <div className="flex items-start gap-3 text-sm text-gray-600">
                       <MapPin size={16} className="shrink-0 mt-0.5 text-gray-400" />
                       <p className="leading-relaxed">{location.display_name}</p>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                       <Phone size={16} className="shrink-0 text-gray-400" />
-                      <p>+91 98765 {location.place_id.toString().slice(-5)}</p>
+                      <p>{contactDisplay}</p>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                       <Clock size={16} className="shrink-0 text-gray-400" />
@@ -119,12 +129,21 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ location, onClose, isO
               
               <div className="flex flex-wrap gap-2">
                   {location.items && location.items.length > 0 ? (
-                      location.items.map((item, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm shadow-sm hover:border-green-300 transition-colors cursor-default">
-                              <ShoppingBag size={14} className="text-green-500" />
-                              {item}
-                          </div>
-                      ))
+                      location.items.map((item, i) => {
+                          const itemName = typeof item === 'string' ? item : (item.inStock ? item.name : null);
+                          if (!itemName) return null;
+                          const itemPrice = typeof item !== 'string' ? item.price : null;
+                          
+                          return (
+                              <div key={i} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm shadow-sm hover:border-green-300 transition-colors cursor-default">
+                                  <ShoppingBag size={14} className="text-green-500" />
+                                  <div className="flex flex-col leading-none">
+                                      <span className="font-medium">{itemName}</span>
+                                      {itemPrice && <span className="text-[10px] text-gray-500 mt-0.5">{itemPrice}</span>}
+                                  </div>
+                              </div>
+                          );
+                      })
                   ) : (
                       <span className="text-gray-400 text-sm italic w-full text-center py-4 bg-gray-50 rounded-lg">
                           Inventory list not available online.
@@ -137,7 +156,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ location, onClose, isO
           <div className="pt-4 pb-8">
               <button className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform active:scale-[0.98] flex items-center justify-center gap-2">
                   <Phone size={20} />
-                  Contact Vendor
+                  Call {contactDisplay}
               </button>
               <p className="text-center text-[10px] text-gray-400 mt-3">
                   Prices may vary based on market rates. Confirm on call.

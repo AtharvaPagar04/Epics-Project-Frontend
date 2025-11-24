@@ -72,6 +72,20 @@ export default function App() {
       setSelectedLocation(location);
   }, []);
 
+  // Update an existing location (e.g., inventory changes)
+  const handleUpdateLocation = useCallback((updatedLocation: LocationResult) => {
+    setSavedLocations(prev => 
+        prev.map(loc => loc.place_id === updatedLocation.place_id ? updatedLocation : loc)
+    );
+    // Also update selected states if they match
+    if (selectedLocation?.place_id === updatedLocation.place_id) {
+        setSelectedLocation(updatedLocation);
+    }
+    if (selectedShop?.place_id === updatedLocation.place_id) {
+        setSelectedShop(updatedLocation);
+    }
+  }, [selectedLocation, selectedShop]);
+
   const handleCategoryClick = useCallback((categoryId: string) => {
       setSelectedCategory(prev => prev === categoryId ? null : categoryId);
       // If we select a category, deselect specific location so we can see the map view
@@ -140,6 +154,7 @@ export default function App() {
                 onStartPickingLocation={handleStartPicking}
                 pickedLocation={tempCoords}
                 onSaveNewLocation={handleSaveNewLocation}
+                onUpdateLocation={handleUpdateLocation}
                 user={user}
                 onLogout={() => setUser(null)}
                 savedLocations={savedLocations}
