@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import L from 'leaflet';
 import { LocationResult, User } from '../types';
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MP_BOUNDS } from '../constants';
-import { Crosshair } from 'lucide-react';
+import { Crosshair, Navigation } from 'lucide-react';
 
 // Fix for default Leaflet marker icons in React
 const DefaultIcon = L.icon({
@@ -40,6 +40,20 @@ const TEMP_ICON = createColorIcon('black');
 const MY_OUTLET_ICON = createColorIcon('red'); // Specific for Vendor's own outlet
 const OTHER_VENDOR_ICON = createColorIcon('black'); // Specific for competitors when logged in as vendor
 const MARKER_VISIBILITY_THRESHOLD = 13; // Markers disappear if zoomed out further than this
+
+// Custom Google Maps Style User Location Icon
+const USER_LOCATION_ICON = L.divIcon({
+    className: 'bg-transparent border-none', // Override default leaflet-div-icon styles
+    html: `
+      <div class="gmaps-marker-container">
+        <div class="gmaps-marker-halo"></div>
+        <div class="gmaps-marker-dot"></div>
+      </div>
+    `,
+    iconSize: [48, 48], // Matches CSS halo size
+    iconAnchor: [24, 24], // Center of the marker
+    popupAnchor: [0, -10] // Popup appears slightly above center
+});
 
 // Helper to get tailwind classes for badges based on category
 const getCategoryColorClass = (type: string) => {
@@ -108,7 +122,7 @@ const MapEvents: React.FC<{
 };
 
 // Recenter Control Button Component
-const RecenterControl = () => {
+const RecenterControl = ({ onLocationFound }: { onLocationFound: (lat: number, lng: number) => void }) => {
     const map = useMap();
     // Zoom level 13 provides approximately a 3.5km - 5km view radius depending on latitude
     const RECENTER_ZOOM = 13;
@@ -121,6 +135,7 @@ const RecenterControl = () => {
               (position) => {
                   const { latitude, longitude } = position.coords;
                   if (!isNaN(latitude) && !isNaN(longitude)) {
+                      onLocationFound(latitude, longitude);
                       map.flyTo([latitude, longitude], RECENTER_ZOOM, {
                           animate: true,
                           duration: 1.5
@@ -149,7 +164,7 @@ const RecenterControl = () => {
       <div className="absolute bottom-6 right-4 z-[999]">
           <button 
               onClick={handleRecenter}
-              className="bg-white p-3 rounded-full shadow-xl border border-gray-200 text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-all focus:outline-none"
+              className="bg-white dark:bg-slate-800 p-3 rounded-full shadow-xl border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all focus:outline-none"
               title="Recenter to My Location (3.5km radius)"
           >
               <Crosshair size={24} />
@@ -167,6 +182,7 @@ export const MapView: React.FC<MapViewProps> = ({
     user
 }) => {
   const [currentZoom, setCurrentZoom] = useState(DEFAULT_ZOOM);
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
   
   // Robust coordinate parsing to prevent crashes
   const getSafePosition = (loc: LocationResult): [number, number] | null => {
@@ -180,10 +196,10 @@ export const MapView: React.FC<MapViewProps> = ({
   const selectedPos = selectedLocation ? getSafePosition(selectedLocation) : null;
   
   // Determine map center with fallback chain
-  // Priority: Selected Location -> Temp Location -> Default Center
+  // Priority: Selected Location -> Temp Location -> User Location -> Default Center
   const centerPos: [number, number] = selectedPos 
     || tempLocation 
-    || DEFAULT_CENTER;
+    || (userPosition ? userPosition : DEFAULT_CENTER);
 
   // Final NaN check for centerPos to be absolutely safe
   const safeCenter: [number, number] = (isNaN(centerPos[0]) || isNaN(centerPos[1])) 
@@ -191,6 +207,22 @@ export const MapView: React.FC<MapViewProps> = ({
     : centerPos;
 
   const zoom = selectedLocation ? 16 : DEFAULT_ZOOM;
+
+  // On mount, try to get user location automatically
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                if (!isNaN(latitude) && !isNaN(longitude)) {
+                    setUserPosition([latitude, longitude]);
+                }
+            },
+            (err) => console.log("Auto-location failed", err),
+            { timeout: 10000 }
+        );
+    }
+  }, []);
 
   return (
     <MapContainer 
@@ -211,9 +243,23 @@ export const MapView: React.FC<MapViewProps> = ({
       <MapResizer />
       <MapController center={safeCenter} zoom={zoom} />
       
-      <RecenterControl />
+      <RecenterControl onLocationFound={(lat, lng) => setUserPosition([lat, lng])} />
 
       <MapEvents onClick={onMapClick} onZoomChange={setCurrentZoom} />
+
+      {/* Render User's Current Location */}
+      {userPosition && (
+          <Marker position={userPosition} icon={USER_LOCATION_ICON} zIndexOffset={1000}>
+               <Popup className="font-sans">
+                   <div className="flex flex-col items-center p-1 gap-1">
+                        <div className="bg-blue-100 text-blue-700 p-1.5 rounded-full mb-1">
+                            <Navigation size={16} className="fill-current" />
+                        </div>
+                       <h3 className="font-bold text-sm text-gray-900">You are here</h3>
+                   </div>
+               </Popup>
+          </Marker>
+      )}
 
       {/* Render Saved/DB Locations - Only when zoomed in */}
       {currentZoom >= MARKER_VISIBILITY_THRESHOLD && savedLocations.map((loc) => {
