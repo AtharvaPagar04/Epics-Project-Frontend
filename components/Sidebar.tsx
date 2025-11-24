@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Clock, Home, Briefcase, ArrowLeft, Loader2, Navigation, Star, Share2, PanelLeftClose, Plus, Check, ShoppingBasket, X, LogOut, User as UserIcon, Store, Phone, Truck, FileText, AlignLeft, Package, Edit, Trash2, ToggleLeft, ToggleRight, Settings, IndianRupee } from 'lucide-react';
+import { Search, MapPin, Clock, Home, Briefcase, ArrowLeft, Loader2, Navigation, Star, Share2, PanelLeftClose, Plus, Check, ShoppingBasket, X, LogOut, User as UserIcon, Store, Phone, Truck, FileText, AlignLeft, Package, Edit, Trash2, ToggleLeft, ToggleRight, Settings, IndianRupee, Moon, Sun } from 'lucide-react';
 import { searchLocation } from '../services/osmService';
 import { LocationResult, User, InventoryItem } from '../types';
 import { RECENT_SEARCHES, CATEGORIES } from '../constants';
@@ -14,6 +14,9 @@ interface SidebarProps {
   user: User | null;
   onLogout: () => void;
   savedLocations: LocationResult[];
+  locationToManage?: LocationResult | null;
+  darkMode: boolean;
+  toggleDarkMode: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -25,7 +28,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onUpdateLocation,
     user,
     onLogout,
-    savedLocations
+    savedLocations,
+    locationToManage,
+    darkMode,
+    toggleDarkMode
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LocationResult[]>([]);
@@ -78,6 +84,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           setActiveView('add');
       }
   }, [pickedLocation]);
+
+  // Handle external management request (e.g. clicking red marker on map)
+  useEffect(() => {
+    if (locationToManage) {
+        handleManageOutlet(locationToManage);
+    }
+  }, [locationToManage]);
 
   const handleSelect = (item: LocationResult) => {
     onLocationSelect(item);
@@ -150,7 +163,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // --- Management Logic ---
   const handleManageOutlet = (outlet: LocationResult) => {
-      onLocationSelect(outlet); // Center map
       setManagedLocation(outlet);
       // Reset management form state
       setManageItemName('');
@@ -252,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative text-gray-900 dark:text-gray-100">
       {/* Header / Search Area */}
       <div className="p-4 pt-6 pb-2">
         <div className="flex items-center gap-3">
@@ -265,28 +277,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             else if (activeView === 'add') setActiveView('search');
                             else handleBackToSearch();
                         }} 
-                        className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                        className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                     >
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        {activeView === 'add' && <h2 className="text-lg font-bold text-gray-900 leading-none">Register Outlet</h2>}
-                        {activeView === 'manage' && <h2 className="text-lg font-bold text-gray-900 leading-none">Manage Outlet</h2>}
-                        {activeView === 'details' && <h2 className="text-lg font-bold text-gray-900 leading-none">Location</h2>}
+                        {activeView === 'add' && <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-none">Register Outlet</h2>}
+                        {activeView === 'manage' && <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-none">Manage Outlet</h2>}
+                        {activeView === 'details' && <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-none">Location</h2>}
                     </div>
                  </div>
             ) : (
                 /* Search Input (Only on Search View) */
                 <div className={`
-                    relative flex items-center flex-1 bg-white border border-gray-300 rounded-full shadow-sm
-                    focus-within:shadow-md focus-within:border-green-500 transition-all h-12
+                    relative flex items-center flex-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-full shadow-sm
+                    focus-within:shadow-md focus-within:border-green-500 dark:focus-within:border-green-500 transition-all h-12
                 `}>
                     <div className="pl-4 text-gray-400">
                         {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Search size={20} />}
                     </div>
                     <input
                         type="text"
-                        className="w-full p-3 bg-transparent outline-none text-gray-700 placeholder-gray-500 text-base"
+                        className="w-full p-3 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 text-base"
                         placeholder="Search locations..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
@@ -294,7 +306,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {query && (
                         <button 
                             onClick={() => { setQuery(''); setResults([]); }}
-                            className="pr-4 text-gray-400 hover:text-gray-600"
+                            className="pr-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                         >
                             <ArrowLeft size={20} className="rotate-45" /> 
                         </button>
@@ -306,7 +318,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {activeView === 'search' && (
                 <button 
                     onClick={onClose} 
-                    className="hidden sm:flex p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                    className="hidden sm:flex p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                     title="Collapse side panel"
                 >
                     <PanelLeftClose size={24} />
@@ -316,7 +328,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-200">
+      <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700">
         
         {/* VIEW: Search Results & History & Vendor Dashboard */}
         {activeView === 'search' && (
@@ -325,10 +337,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {user?.role === 'vendor' && !query && (
                     <div className="mb-6 px-2">
                         <div className="flex items-center justify-between px-2 mb-2">
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">My Outlets</h3>
+                            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">My Outlets</h3>
                             <button 
                                 onClick={() => setActiveView('add')} 
-                                className="text-xs flex items-center gap-1 text-green-600 font-bold hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                                className="text-xs flex items-center gap-1 text-green-600 dark:text-green-400 font-bold hover:bg-green-50 dark:hover:bg-green-900/30 px-2 py-1 rounded transition-colors"
                             >
                                 <Plus size={14} /> Add New
                             </button>
@@ -340,21 +352,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 myOutlets.map(outlet => (
                                     <button
                                         key={outlet.place_id}
-                                        onClick={() => handleManageOutlet(outlet)}
-                                        className="w-full bg-white border border-green-100 shadow-sm rounded-xl p-3 flex items-center gap-3 hover:shadow-md hover:border-green-200 transition-all text-left group"
+                                        onClick={() => {
+                                            handleManageOutlet(outlet);
+                                            onLocationSelect(outlet); // Center map on click from list
+                                        }}
+                                        className="w-full bg-white dark:bg-slate-800 border border-green-100 dark:border-slate-700 shadow-sm rounded-xl p-3 flex items-center gap-3 hover:shadow-md hover:border-green-200 dark:hover:border-green-900 transition-all text-left group"
                                     >
-                                        <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center border border-green-100">
+                                        <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 flex items-center justify-center border border-green-100 dark:border-green-900/30">
                                             <Settings size={20} />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="font-bold text-gray-800 text-sm">{outlet.address?.road || outlet.display_name.split(',')[0]}</p>
+                                            <p className="font-bold text-gray-800 dark:text-gray-100 text-sm">{outlet.address?.road || outlet.display_name.split(',')[0]}</p>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">
+                                                <span className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-100 dark:border-green-900/30">
                                                     Manage Stock
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="bg-gray-50 p-1.5 rounded-full text-gray-400 group-hover:text-green-600 transition-colors">
+                                        <div className="bg-gray-50 dark:bg-slate-700 p-1.5 rounded-full text-gray-400 dark:text-gray-500 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
                                             <Edit size={16} />
                                         </div>
                                     </button>
@@ -362,13 +377,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             ) : (
                                 <button 
                                     onClick={() => setActiveView('add')}
-                                    className="w-full bg-white border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-green-400 hover:bg-green-50/50 transition-all group"
+                                    className="w-full bg-white dark:bg-slate-800 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-green-400 hover:bg-green-50/50 dark:hover:bg-slate-750 transition-all group"
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                                         <Plus size={24} />
                                     </div>
-                                    <p className="text-sm font-semibold text-gray-600 group-hover:text-green-700">List Your First Outlet</p>
-                                    <p className="text-xs text-gray-400 text-center">Customers are waiting! Tap to place your shop on the map.</p>
+                                    <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-400">List Your First Outlet</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 text-center">Customers are waiting! Tap to place your shop on the map.</p>
                                 </button>
                             )}
                         </div>
@@ -382,16 +397,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <button
                                 key={item.place_id}
                                 onClick={() => handleSelect(item)}
-                                className="w-full text-left px-4 py-3 hover:bg-gray-100 flex items-start gap-3 rounded-lg transition-colors group border-b border-transparent hover:border-gray-100"
+                                className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-slate-800 flex items-start gap-3 rounded-lg transition-colors group border-b border-transparent hover:border-gray-100 dark:hover:border-slate-700"
                             >
-                                <div className="mt-1 bg-gray-100 p-2 rounded-full group-hover:bg-white transition-colors">
-                                    <MapPin size={18} className="text-gray-600" />
+                                <div className="mt-1 bg-gray-100 dark:bg-slate-700 p-2 rounded-full group-hover:bg-white dark:group-hover:bg-slate-600 transition-colors">
+                                    <MapPin size={18} className="text-gray-600 dark:text-gray-300" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-gray-800 line-clamp-1 text-sm">
+                                    <p className="font-medium text-gray-800 dark:text-gray-200 line-clamp-1 text-sm">
                                         {item.address?.road || item.display_name.split(',')[0]}
                                     </p>
-                                    <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">
                                         {item.display_name}
                                     </p>
                                 </div>
@@ -402,7 +417,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Empty State */}
                 {query.length > 0 && results.length === 0 && !isLoading && (
-                     <div className="text-center py-10 text-gray-500 text-sm">
+                     <div className="text-center py-10 text-gray-500 dark:text-gray-400 text-sm">
                         <p>No results found</p>
                      </div>
                 )}
@@ -410,16 +425,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Recent History */}
                 {(!query || results.length < 3) && (
                     <div className="mt-2">
-                        {!query && <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 mt-2">Explore Nearby</h3>}
+                        {!query && <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 mt-2">Explore Nearby</h3>}
                         
                         {RECENT_SEARCHES.map((item) => (
-                             <div key={item.id} className="w-full text-left px-4 py-3 hover:bg-gray-100 flex items-center gap-4 rounded-lg cursor-pointer group">
-                                <div className="p-2 rounded-full flex items-center justify-center bg-gray-100 text-gray-500">
+                             <div key={item.id} className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center gap-4 rounded-lg cursor-pointer group">
+                                <div className="p-2 rounded-full flex items-center justify-center bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-300">
                                     <ShoppingBasket size={18} />
                                 </div>
                                 <div className="flex-1">
-                                    <p className="font-medium text-gray-800 text-sm">{item.name}</p>
-                                    <p className="text-xs text-gray-500">{item.location}</p>
+                                    <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{item.name}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.location}</p>
                                 </div>
                              </div>
                         ))}
@@ -433,16 +448,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="px-4 pt-2 animate-fadeIn space-y-6">
                 
                 {/* Header Info */}
-                <div className="bg-gradient-to-br from-green-50 to-white rounded-xl shadow-sm border border-green-100 p-4">
-                    <h1 className="text-xl font-bold text-gray-800">{managedLocation.address?.road || managedLocation.display_name.split(',')[0]}</h1>
-                    <p className="text-xs text-gray-500 mt-1">{managedLocation.display_name}</p>
+                <div className="bg-gradient-to-br from-green-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-sm border border-green-100 dark:border-slate-700 p-4">
+                    <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">{managedLocation.address?.road || managedLocation.display_name.split(',')[0]}</h1>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{managedLocation.display_name}</p>
                     <div className="flex gap-2 mt-3">
-                         <div className="flex items-center gap-1.5 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold border border-green-200">
+                         <div className="flex items-center gap-1.5 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-xs font-bold border border-green-200 dark:border-green-900/30">
                              <Check size={12} /> Live on Map
                          </div>
                          <button 
                             onClick={handleToggleDelivery}
-                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold border transition-colors ${managedLocation.delivery ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold border transition-colors ${managedLocation.delivery ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/30' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-600'}`}
                          >
                              <Truck size={12} /> {managedLocation.delivery ? 'Delivery On' : 'Delivery Off'}
                          </button>
@@ -452,7 +467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Inventory Manager */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                             <Package size={18} className="text-orange-600" />
                             Inventory
                         </h3>
@@ -462,7 +477,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     {/* Add / Edit Item Form */}
-                    <form onSubmit={handleAddManageItem} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <form onSubmit={handleAddManageItem} className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border border-gray-200 dark:border-slate-700">
                         {editingItemId && <p className="text-xs text-orange-600 font-bold mb-2">Editing Item</p>}
                         <div className="flex gap-2 mb-2">
                             <input 
@@ -470,14 +485,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 value={manageItemName}
                                 onChange={(e) => setManageItemName(e.target.value)}
                                 placeholder="Item Name (e.g. Potato)"
-                                className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                                className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 dark:text-gray-200"
                             />
                             <input 
                                 type="text"
                                 value={manageItemPrice}
                                 onChange={(e) => setManageItemPrice(e.target.value)}
                                 placeholder="Price (₹)"
-                                className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                                className="w-24 px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 dark:text-gray-200"
                             />
                         </div>
                         <div className="flex gap-2">
@@ -493,7 +508,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <button 
                                     type="button" 
                                     onClick={handleCancelEdit}
-                                    className="px-3 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
+                                    className="px-3 py-2 bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors"
                                 >
                                     <X size={16} />
                                 </button>
@@ -502,23 +517,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </form>
 
                     {/* Item List */}
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
                         {getNormalizedItems(managedLocation).length > 0 ? (
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-gray-100 dark:divide-slate-800">
                                 {getNormalizedItems(managedLocation).map((item) => (
-                                    <div key={item.id} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                                    <div key={item.id} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                                         <div className="flex items-center gap-3">
                                             <button 
                                                 onClick={() => handleToggleStock(item)}
                                                 className={`
                                                     w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out flex items-center
-                                                    ${item.inStock ? 'bg-green-500' : 'bg-gray-300'}
+                                                    ${item.inStock ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}
                                                 `}
                                             >
                                                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${item.inStock ? 'translate-x-4' : 'translate-x-0'}`} />
                                             </button>
                                             <div>
-                                                <p className={`text-sm font-medium ${item.inStock ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                                                <p className={`text-sm font-medium ${item.inStock ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 line-through'}`}>
                                                     {item.name}
                                                 </p>
                                                 <div className="flex items-center gap-2">
@@ -526,7 +541,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                         {item.inStock ? 'In Stock' : 'Out of Stock'}
                                                     </span>
                                                     {item.price && (
-                                                        <span className="text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-100 font-medium">
+                                                        <span className="text-[10px] bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded border border-orange-100 dark:border-orange-900/30 font-medium">
                                                             {item.price}
                                                         </span>
                                                     )}
@@ -536,13 +551,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <div className="flex items-center gap-1">
                                             <button 
                                                 onClick={() => handleEditItem(item)}
-                                                className="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all"
+                                                className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
                                             >
                                                 <Edit size={16} />
                                             </button>
                                             <button 
                                                 onClick={() => handleDeleteManageItem(item.id)}
-                                                className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-all"
+                                                className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -559,13 +574,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
-                     <div className="p-2 bg-white rounded-full text-blue-600 shadow-sm mt-1">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
+                     <div className="p-2 bg-white dark:bg-slate-800 rounded-full text-blue-600 dark:text-blue-400 shadow-sm mt-1">
                          <FileText size={16} />
                      </div>
                      <div>
-                         <p className="text-sm font-bold text-gray-800">Quick Tip</p>
-                         <p className="text-xs text-gray-600 mt-1">
+                         <p className="text-sm font-bold text-gray-800 dark:text-gray-100">Quick Tip</p>
+                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                              Keep your stock and prices updated daily. Customers prefer stores with transparent pricing.
                          </p>
                      </div>
@@ -579,25 +594,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="px-4 pt-2 animate-fadeIn space-y-6">
                 
                 {/* 1. Basic Info Section */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
-                    <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-2">
                         <Store size={18} className="text-green-600" />
-                        <h3 className="text-sm font-bold text-gray-800">Outlet Details</h3>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Outlet Details</h3>
                     </div>
                     
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Shop Name</label>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase">Shop Name</label>
                         <input 
                             type="text"
                             value={newPlaceName}
                             onChange={(e) => setNewPlaceName(e.target.value)}
                             placeholder="e.g. Raju's Fresh Veggies"
-                            className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white outline-none transition-all"
+                            className="w-full p-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white dark:focus:bg-slate-700 outline-none transition-all dark:text-gray-100"
                         />
                     </div>
                     
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Category</label>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase">Category</label>
                         <div className="grid grid-cols-2 gap-2">
                             {CATEGORIES.map(cat => (
                                 <button
@@ -606,8 +621,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     className={`
                                         flex items-center gap-2 p-2 rounded-lg border text-xs font-medium transition-all
                                         ${newPlaceCategory === cat.id 
-                                            ? 'bg-green-50 border-green-500 text-green-700' 
-                                            : 'bg-white border-gray-200 text-gray-600 hover:border-green-300'
+                                            ? 'bg-green-50 dark:bg-green-900/30 border-green-500 text-green-700 dark:text-green-400' 
+                                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:border-green-300'
                                         }
                                     `}
                                 >
@@ -619,7 +634,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Description</label>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase">Description</label>
                         <div className="relative">
                             <FileText size={16} className="absolute left-3 top-3 text-gray-400" />
                             <textarea 
@@ -627,46 +642,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 onChange={(e) => setNewPlaceDesc(e.target.value)}
                                 placeholder="Describe your shop... (e.g. Fresh organic vegetables daily)"
                                 rows={2}
-                                className="w-full pl-9 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white outline-none transition-all resize-none"
+                                className="w-full pl-9 p-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:bg-white dark:focus:bg-slate-700 outline-none transition-all resize-none dark:text-gray-100"
                             />
                         </div>
                     </div>
                 </div>
 
                 {/* 2. Contact & Services */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
-                     <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 space-y-4">
+                     <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-2">
                         <Phone size={18} className="text-blue-600" />
-                        <h3 className="text-sm font-bold text-gray-800">Contact & Services</h3>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Contact & Services</h3>
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Mobile Number</label>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase">Mobile Number</label>
                         <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500 text-sm font-medium border-r border-gray-300 pr-2">+91</span>
+                            <span className="absolute left-3 top-2.5 text-gray-500 dark:text-gray-400 text-sm font-medium border-r border-gray-300 dark:border-slate-600 pr-2">+91</span>
                             <input 
                                 type="tel"
                                 value={contactNumber}
                                 onChange={(e) => setContactNumber(e.target.value.replace(/\D/g,'').slice(0,10))}
                                 placeholder="98765 43210"
-                                className="w-full pl-14 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-mono"
+                                className="w-full pl-14 p-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-700 outline-none transition-all font-mono dark:text-gray-100"
                             />
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-900/30">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white rounded-full text-blue-600 shadow-sm">
+                            <div className="p-2 bg-white dark:bg-slate-800 rounded-full text-blue-600 shadow-sm">
                                 <Truck size={18} />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-gray-800">Delivery Service</p>
-                                <p className="text-[10px] text-gray-500">Do you deliver to customers?</p>
+                                <p className="text-sm font-bold text-gray-800 dark:text-gray-100">Delivery Service</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Do you deliver to customers?</p>
                             </div>
                         </div>
                         <button 
                             onClick={() => setDeliveryAvailable(!deliveryAvailable)}
-                            className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${deliveryAvailable ? 'bg-blue-600' : 'bg-gray-300'}`}
+                            className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${deliveryAvailable ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'}`}
                         >
                             <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${deliveryAvailable ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
@@ -674,10 +689,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* 3. Inventory Manager */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
-                    <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-2">
                         <Package size={18} className="text-orange-600" />
-                        <h3 className="text-sm font-bold text-gray-800">Initial Stock & Prices</h3>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Initial Stock & Prices</h3>
                     </div>
                     
                     <form onSubmit={handleAddItem} className="flex gap-2">
@@ -687,7 +702,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 value={currentItemName}
                                 onChange={(e) => setCurrentItemName(e.target.value)}
                                 placeholder="Item (e.g. Potato)"
-                                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                                className="w-full p-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all dark:text-gray-100"
                             />
                             <div className="flex gap-2">
                                 <input 
@@ -695,7 +710,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     value={currentItemPrice}
                                     onChange={(e) => setCurrentItemPrice(e.target.value)}
                                     placeholder="Price (e.g. ₹20/kg)"
-                                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                                    className="w-full p-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all dark:text-gray-100"
                                 />
                                 <button 
                                     type="submit" 
@@ -708,13 +723,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     </form>
 
-                    <div className="min-h-[60px] p-2 bg-gray-50 rounded-lg border border-gray-200 border-dashed">
+                    <div className="min-h-[60px] p-2 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-700 border-dashed">
                         {inventoryItems.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                                 {inventoryItems.map((item, idx) => (
-                                    <span key={idx} className="bg-white border border-gray-200 text-gray-700 text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-sm">
+                                    <span key={idx} className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-sm">
                                         {item.name}
-                                        {item.price && <span className="text-orange-600 font-medium">({item.price})</span>}
+                                        {item.price && <span className="text-orange-600 dark:text-orange-400 font-medium">({item.price})</span>}
                                         <button onClick={() => handleRemoveItem(idx)} className="text-gray-400 hover:text-red-500 transition-colors">
                                             <X size={12} />
                                         </button>
@@ -730,31 +745,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* 4. Location Picker */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center gap-2 border-b border-gray-50 pb-2 mb-3">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-2 mb-3">
                         <MapPin size={18} className="text-red-600" />
-                        <h3 className="text-sm font-bold text-gray-800">Location</h3>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Location</h3>
                     </div>
 
                     {pickedLocation ? (
-                        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="bg-white p-1.5 rounded-full text-green-600 shadow-sm">
+                        <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/30 rounded-lg">
+                            <div className="bg-white dark:bg-slate-800 p-1.5 rounded-full text-green-600 shadow-sm">
                                 <Check size={16} />
                             </div>
                             <div className="flex-1">
-                                <p className="text-sm font-bold text-green-800">Coordinates Set</p>
-                                <p className="text-[10px] text-green-700 font-mono mt-0.5">
+                                <p className="text-sm font-bold text-green-800 dark:text-green-400">Coordinates Set</p>
+                                <p className="text-[10px] text-green-700 dark:text-green-500 font-mono mt-0.5">
                                     {pickedLocation[0].toFixed(6)}, {pickedLocation[1].toFixed(6)}
                                 </p>
                             </div>
-                            <button onClick={onStartPickingLocation} className="text-xs text-green-700 underline font-medium hover:text-green-800">
+                            <button onClick={onStartPickingLocation} className="text-xs text-green-700 dark:text-green-400 underline font-medium hover:text-green-800">
                                 Change
                             </button>
                         </div>
                     ) : (
                         <button 
                             onClick={onStartPickingLocation}
-                            className="w-full py-4 border-2 border-dashed border-red-200 bg-red-50/50 rounded-xl text-red-500 hover:border-red-400 hover:text-red-600 hover:bg-red-50 transition-all flex flex-col items-center justify-center gap-2 group"
+                            className="w-full py-4 border-2 border-dashed border-red-200 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 rounded-xl text-red-500 hover:border-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex flex-col items-center justify-center gap-2 group"
                         >
                             <MapPin size={24} className="group-hover:scale-110 transition-transform" />
                             <span className="font-bold text-sm">Pin Location on Map</span>
@@ -767,7 +782,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button 
                         disabled={!newPlaceName || !pickedLocation}
                         onClick={handleSavePlace}
-                        className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full bg-gray-900 dark:bg-slate-700 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:bg-black dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center gap-2"
                     >
                         <Store size={20} />
                         Publish Outlet
@@ -783,7 +798,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {activeView === 'details' && selectedDetail && (
             <div className="animate-fadeIn">
                 {/* Hero Image */}
-                <div className="h-48 w-full bg-gray-200 relative mb-4 -mt-4 mx-0 group">
+                <div className="h-48 w-full bg-gray-200 dark:bg-slate-700 relative mb-4 -mt-4 mx-0 group">
                     <img 
                         src={`https://picsum.photos/seed/${selectedDetail.place_id}/800/400`} 
                         alt="Location" 
@@ -802,7 +817,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button 
                         onClick={handleBackToSearch}
-                        className="absolute top-4 left-4 bg-white/90 p-2 rounded-full shadow-md text-gray-700 hover:bg-white transition-all hover:scale-105"
+                        className="absolute top-4 left-4 bg-white/90 dark:bg-slate-800/90 p-2 rounded-full shadow-md text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-slate-800 transition-all hover:scale-105"
                     >
                         <ArrowLeft size={20} />
                     </button>
@@ -811,7 +826,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="px-4">
                     {/* Available Items Section */}
                     <div className="mb-6">
-                        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide mb-3 flex items-center gap-2">
                             <ShoppingBasket size={16} className="text-green-600" />
                             Available Today
                         </h3>
@@ -826,35 +841,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     const itemPrice = typeof item !== 'string' ? item.price : null;
 
                                     return (
-                                        <span key={i} className="px-3 py-1.5 bg-green-100 text-green-800 text-sm font-medium rounded-lg border border-green-200 flex items-center gap-1">
+                                        <span key={i} className="px-3 py-1.5 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 text-sm font-medium rounded-lg border border-green-200 dark:border-green-900/30 flex items-center gap-1">
                                             {itemName}
-                                            {itemPrice && <span className="text-xs text-green-700 opacity-75 border-l border-green-300 pl-1 ml-1">{itemPrice}</span>}
+                                            {itemPrice && <span className="text-xs text-green-700 dark:text-green-400 opacity-75 border-l border-green-300 dark:border-green-700 pl-1 ml-1">{itemPrice}</span>}
                                         </span>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500 italic bg-gray-50 dark:bg-slate-800 p-3 rounded-lg">
                                 No stock information available.
                             </p>
                         )}
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-4 mb-6 border-b border-gray-100 pb-6 overflow-x-auto hide-scrollbar">
+                    <div className="flex gap-4 mb-6 border-b border-gray-100 dark:border-slate-800 pb-6 overflow-x-auto hide-scrollbar">
                         <ActionButton icon={<Navigation size={20} />} label="Directions" primary />
                         <ActionButton icon={<MapPin size={20} />} label="Save" />
                         <ActionButton icon={<Share2 size={20} />} label="Share" />
                     </div>
 
                     <div className="space-y-4">
-                        <div className="flex items-start gap-3 text-gray-700">
+                        <div className="flex items-start gap-3 text-gray-700 dark:text-gray-300">
                              <MapPin className="shrink-0 mt-1 text-gray-400" size={18} />
                              <p className="text-sm leading-relaxed">{selectedDetail.display_name}</p>
                         </div>
-                        <div className="flex items-center gap-3 text-gray-700">
+                        <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                              <Clock className="shrink-0 text-gray-400" size={18} />
-                             <p className="text-sm text-green-700 font-medium">Open now <span className="text-gray-500 font-normal">· Fresh Stock</span></p>
+                             <p className="text-sm text-green-700 dark:text-green-400 font-medium">Open now <span className="text-gray-500 dark:text-gray-400 font-normal">· Fresh Stock</span></p>
                         </div>
                     </div>
                 </div>
@@ -864,7 +879,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
         
         {/* Footer / Profile Section */}
-        <div className="p-3 border-t bg-gray-50">
+        <div className="p-3 border-t dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
             {user ? (
                 <div className="flex items-center justify-between gap-3">
                      <div className="flex items-center gap-3">
@@ -872,17 +887,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                              {user.name.charAt(0)}
                          </div>
                          <div>
-                             <p className="text-sm font-semibold text-gray-800">{user.name}</p>
-                             <p className="text-xs text-gray-500 capitalize">{user.role} Access</p>
+                             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{user.name}</p>
+                             <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user.role} Access</p>
                          </div>
                      </div>
-                     <button 
-                        onClick={onLogout}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Log Out"
-                     >
-                         <LogOut size={20} />
-                     </button>
+                     <div className="flex items-center gap-1">
+                         {/* Theme Toggle Button */}
+                        <button
+                            onClick={toggleDarkMode}
+                            className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                            title="Toggle Dark Mode"
+                        >
+                            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                        </button>
+                        <button 
+                            onClick={onLogout}
+                            className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title="Log Out"
+                        >
+                            <LogOut size={20} />
+                        </button>
+                     </div>
                 </div>
             ) : (
                 <div className="text-center text-[10px] text-gray-400">
@@ -897,12 +922,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 const ActionButton: React.FC<{ icon: React.ReactNode; label: string; primary?: boolean }> = ({ icon, label, primary }) => (
     <button className={`
         flex flex-col items-center gap-1 min-w-[64px]
-        ${primary ? 'text-green-600' : 'text-green-500'}
+        ${primary ? 'text-green-600 dark:text-green-400' : 'text-green-500 dark:text-green-500/80'}
         hover:opacity-80 transition-opacity
     `}>
         <div className={`
             w-10 h-10 rounded-full flex items-center justify-center border transition-colors shadow-sm
-            ${primary ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-green-100 hover:bg-green-50'}
+            ${primary ? 'bg-green-600 text-white border-green-600' : 'bg-white dark:bg-slate-800 text-green-600 dark:text-green-400 border-green-100 dark:border-slate-700 hover:bg-green-50 dark:hover:bg-slate-700'}
         `}>
             {icon}
         </div>

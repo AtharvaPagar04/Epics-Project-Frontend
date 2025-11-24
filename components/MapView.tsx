@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { LocationResult } from '../types';
+import { LocationResult, User } from '../types';
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MP_BOUNDS } from '../constants';
 import { Crosshair } from 'lucide-react';
 
@@ -36,7 +36,9 @@ const CATEGORY_ICONS: Record<string, L.Icon> = {
 };
 
 const FALLBACK_ICON = createColorIcon('blue');
-const TEMP_ICON = createColorIcon('black'); // Distinct from others
+const TEMP_ICON = createColorIcon('black'); 
+const MY_OUTLET_ICON = createColorIcon('red'); // Specific for Vendor's own outlet
+const OTHER_VENDOR_ICON = createColorIcon('black'); // Specific for competitors when logged in as vendor
 const MARKER_VISIBILITY_THRESHOLD = 13; // Markers disappear if zoomed out further than this
 
 // Helper to get tailwind classes for badges based on category
@@ -55,6 +57,7 @@ interface MapViewProps {
   onMapClick?: (lat: number, lng: number) => void;
   tempLocation?: [number, number] | null;
   onMarkerClick?: (location: LocationResult) => void;
+  user?: User | null;
 }
 
 // Component to handle map resizing issues when mounting
@@ -160,7 +163,8 @@ export const MapView: React.FC<MapViewProps> = ({
     savedLocations = [], 
     onMapClick,
     tempLocation,
-    onMarkerClick
+    onMarkerClick,
+    user
 }) => {
   const [currentZoom, setCurrentZoom] = useState(DEFAULT_ZOOM);
   
@@ -216,7 +220,20 @@ export const MapView: React.FC<MapViewProps> = ({
          const pos = getSafePosition(loc);
          if (!pos) return null; // Skip invalid locations
 
-         const markerIcon = CATEGORY_ICONS[loc.type] || FALLBACK_ICON;
+         // Icon Logic
+         let markerIcon = CATEGORY_ICONS[loc.type] || FALLBACK_ICON;
+         
+         // Custom logic for Vendors: My Outlet = Red, Others = Black
+         if (user?.role === 'vendor') {
+            if (loc.ownerId === user.id) {
+                // It's MY outlet
+                markerIcon = MY_OUTLET_ICON;
+            } else {
+                // It's SOMEONE ELSE's outlet (or general store)
+                markerIcon = OTHER_VENDOR_ICON;
+            }
+         }
+
          const badgeClass = getCategoryColorClass(loc.type);
 
          return (
@@ -227,7 +244,10 @@ export const MapView: React.FC<MapViewProps> = ({
                 eventHandlers={{
                     mouseover: (e) => e.target.openPopup(),
                     mouseout: (e) => e.target.closePopup(),
-                    click: () => onMarkerClick && onMarkerClick(loc)
+                    click: (e) => {
+                        L.DomEvent.stopPropagation(e); // Prevent map click from firing
+                        onMarkerClick && onMarkerClick(loc);
+                    }
                 }}
             >
                 <Popup className="font-sans" closeButton={false}>
@@ -236,6 +256,11 @@ export const MapView: React.FC<MapViewProps> = ({
                             <span className={`font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeClass}`}>
                                 {loc.type || 'Vendor'}
                             </span>
+                            {user?.role === 'vendor' && loc.ownerId === user.id && (
+                                <span className="font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200">
+                                    My Outlet
+                                </span>
+                            )}
                         </div>
                         <h3 className="font-bold text-sm text-gray-900 leading-tight">{loc.address?.road || loc.display_name.split(',')[0]}</h3>
                         
@@ -259,7 +284,9 @@ export const MapView: React.FC<MapViewProps> = ({
                         )}
 
                         <p className="text-[10px] text-gray-500 mt-2 leading-3">{loc.display_name}</p>
-                        <div className="mt-2 text-[10px] text-blue-600 font-bold">Click for details</div>
+                        <div className="mt-2 text-[10px] text-blue-600 font-bold">
+                            {user?.role === 'vendor' && loc.ownerId === user.id ? 'Tap to manage inventory' : 'Click for details'}
+                        </div>
                     </div>
                 </Popup>
             </Marker>
